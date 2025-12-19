@@ -38,8 +38,11 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @SuppressWarnings({"deprecation", "BooleanMethodIsAlwaysInverted"})
 public class TaskUtils {
@@ -47,8 +50,54 @@ public class TaskUtils {
     public static final String TASK_ATTRIBUTION_STRING = "<built-in>";
     private static final BukkitQuestsPlugin plugin;
 
+    // Cache for parsed block specifications to avoid repeated String.split() and Material.getMaterial() calls
+    private static final Map<String, ParsedBlockSpec> BLOCK_SPEC_CACHE = new ConcurrentHashMap<>();
+
+    // Cache for Material lookups
+    private static final Map<String, Material> MATERIAL_CACHE = new ConcurrentHashMap<>();
+
     static {
         plugin = BukkitQuestsPlugin.getPlugin(BukkitQuestsPlugin.class);
+    }
+
+    /**
+     * Represents a pre-parsed block specification (e.g., "STONE:2" -> material=STONE, data=2)
+     */
+    public record ParsedBlockSpec(Material material, int data, boolean hasData) {
+        public static ParsedBlockSpec parse(String materialName) {
+            int colonIndex = materialName.indexOf(':');
+            if (colonIndex != -1) {
+                String matPart = materialName.substring(0, colonIndex);
+                int data = Integer.parseInt(materialName.substring(colonIndex + 1));
+                Material mat = getCachedMaterial(matPart);
+                return new ParsedBlockSpec(mat, data, true);
+            } else {
+                Material mat = getCachedMaterial(materialName);
+                return new ParsedBlockSpec(mat, 0, false);
+            }
+        }
+    }
+
+    /**
+     * Gets a Material from cache, avoiding repeated Material.getMaterial() calls
+     */
+    public static @Nullable Material getCachedMaterial(String name) {
+        return MATERIAL_CACHE.computeIfAbsent(name, Material::getMaterial);
+    }
+
+    /**
+     * Gets a cached parsed block specification
+     */
+    public static ParsedBlockSpec getCachedBlockSpec(String materialName) {
+        return BLOCK_SPEC_CACHE.computeIfAbsent(materialName, ParsedBlockSpec::parse);
+    }
+
+    /**
+     * Clears the block spec and material caches. Should be called on plugin reload.
+     */
+    public static void clearCaches() {
+        BLOCK_SPEC_CACHE.clear();
+        MATERIAL_CACHE.clear();
     }
 
     public static boolean validateWorld(final Player player, final Task task) {
@@ -344,30 +393,22 @@ public class TaskUtils {
         }
 
         Object configData = task.getConfigValue("data");
+        int configDataInt = configData != null ? (int) configData : 0;
 
         Material blockMaterial = state.getType();
         // do not set block data here as it will initialize Legacy Material Support
         Byte blockData = null;
 
-        Material material;
-        int comparableData;
-
         for (String materialName : checkBlocks) {
-            String[] parts = materialName.split(":", 2);
-            if (parts.length == 2) {
-                comparableData = Integer.parseInt(parts[1]);
-            } else if (configData != null) {
-                comparableData = (int) configData;
-            } else {
-                comparableData = 0;
-            }
-
-            material = Material.getMaterial(parts[0]);
+            // Use cached parsed block spec instead of String.split() and Material.getMaterial()
+            ParsedBlockSpec spec = getCachedBlockSpec(materialName);
+            Material material = spec.material();
+            int comparableData = spec.hasData() ? spec.data() : configDataInt;
 
             type.debug("Checking against block " + material + ":" + comparableData, pendingTask.quest.getId(), task.getId(), player);
 
             if (material == blockMaterial) {
-                if (parts.length == 1 && configData == null) {
+                if (!spec.hasData() && configData == null) {
                     type.debug("Block match (modern)", pendingTask.quest.getId(), task.getId(), player);
                     return true;
                 }

@@ -15,6 +15,8 @@ public class Quest implements Comparable<Quest> {
 
     private final Map<String, Task> tasks = new HashMap<>();
     private final Map<String, List<Task>> tasksByType = new HashMap<>();
+    // Cache for unmodifiable list wrappers to avoid creating new ones on every getTasksOfType() call
+    private final Map<String, List<Task>> tasksByTypeUnmodifiable = new HashMap<>();
     private String id;
     private List<String> rewards;
     private List<String> requirements;
@@ -61,6 +63,8 @@ public class Quest implements Comparable<Quest> {
                 return list;
             }
         });
+        // Update the cached unmodifiable wrapper
+        tasksByTypeUnmodifiable.put(task.getType(), Collections.unmodifiableList(tasksByType.get(task.getType())));
     }
 
     /**
@@ -93,8 +97,9 @@ public class Quest implements Comparable<Quest> {
     public @NotNull List<Task> getTasksOfType(String type) {
         Objects.requireNonNull(type, "type cannot be null");
 
-        List<Task> list = tasksByType.get(type);
-        return list == null ? Collections.emptyList() : Collections.unmodifiableList(list);
+        // Use cached unmodifiable wrapper to avoid creating new wrapper on every call
+        List<Task> list = tasksByTypeUnmodifiable.get(type);
+        return list == null ? Collections.emptyList() : list;
     }
 
 

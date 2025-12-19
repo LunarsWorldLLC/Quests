@@ -147,6 +147,7 @@ import com.leonardobishop.quests.bukkit.tasktype.type.dependent.uSkyBlockLevelTa
 import com.leonardobishop.quests.bukkit.util.CompatUtils;
 import com.leonardobishop.quests.bukkit.util.FormatUtils;
 import com.leonardobishop.quests.bukkit.util.LogHistory;
+import com.leonardobishop.quests.bukkit.util.TaskUtils;
 import com.leonardobishop.quests.common.config.ConfigProblem;
 import com.leonardobishop.quests.common.config.ConfigProblemDescriptions;
 import com.leonardobishop.quests.common.config.QuestsConfig;
@@ -658,6 +659,9 @@ public class BukkitQuestsPlugin extends JavaPlugin implements Quests {
             BukkitQuestsLoader questsLoader = new BukkitQuestsLoader(this);
             questsLoader.loadQuestItems(new File(super.getDataFolder() + File.separator + "items"));
             configProblems = questsLoader.loadQuests(new File(super.getDataFolder() + File.separator + "quests"));
+
+            // Clear TaskUtils caches on reload
+            TaskUtils.clearCaches();
 
             for (TaskType taskType : taskTypeManager.getTaskTypes()) {
                 try {
