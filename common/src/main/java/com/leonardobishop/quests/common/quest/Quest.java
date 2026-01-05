@@ -20,6 +20,8 @@ public class Quest implements Comparable<Quest> {
     private String id;
     private List<String> rewards;
     private List<String> requirements;
+    // Cached unmodifiable wrapper to avoid creating new one on every getRequirements() call
+    private List<String> requirementsUnmodifiable;
     private List<String> rewardString;
     private List<String> startString;
     private List<String> cancelString;
@@ -187,7 +189,7 @@ public class Quest implements Comparable<Quest> {
      * @return immutable list of quest requirements
      */
     public @NotNull List<String> getRequirements() {
-        return Collections.unmodifiableList(requirements);
+        return requirementsUnmodifiable;
     }
 
     /**
@@ -536,6 +538,7 @@ public class Quest implements Comparable<Quest> {
             quest.id = this.id;
             quest.rewards = this.rewards;
             quest.requirements = this.requirements;
+            quest.requirementsUnmodifiable = Collections.unmodifiableList(this.requirements);
             quest.rewardString = this.rewardString;
             quest.startString = this.startString;
             quest.cancelString = this.cancelString;
