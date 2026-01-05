@@ -46,10 +46,13 @@ public class NormalQuestController implements QuestController {
 
     private final List<Quest> autoStartQuestCache;
     private final Map<Quest, VaultReward> vaultRewardCache;
+    // Cached config value to avoid repeated config lookups on hot path
+    private final boolean globalAutoStartEnabled;
 
     public NormalQuestController(BukkitQuestsPlugin plugin) {
         this.plugin = plugin;
         this.config = (BukkitQuestsConfig) plugin.getQuestsConfig();
+        this.globalAutoStartEnabled = this.config.getBoolean("options.quest-autostart");
 
         List<Quest> autoStartQuestCache = new ArrayList<>();
         for (Quest quest : plugin.getQuestManager().getQuestMap().values()) {
@@ -204,9 +207,7 @@ public class NormalQuestController implements QuestController {
             }
         }
 
-        final boolean autostart = this.config.getBoolean("options.quest-autostart");
-
-        if (autostart) {
+        if (this.globalAutoStartEnabled) {
             return QuestStartResult.QUEST_ALREADY_STARTED;
         }
 
@@ -286,7 +287,7 @@ public class NormalQuestController implements QuestController {
 
     @Override
     public boolean hasPlayerStartedQuest(QPlayer qPlayer, Quest quest) {
-        return quest.isAutoStartEnabled() || config.getBoolean("options.quest-autostart")
+        return quest.isAutoStartEnabled() || this.globalAutoStartEnabled
                 ? canPlayerStartQuest(qPlayer, quest).hasPlayerStartedQuest()
                 : qPlayer.getQuestProgressFile().hasQuestStarted(quest);
     }
@@ -310,7 +311,7 @@ public class NormalQuestController implements QuestController {
             }
             return false;
         }
-        if (!quest.isCancellable() || quest.isAutoStartEnabled() || config.getBoolean("options.quest-autostart")) {
+        if (!quest.isCancellable() || quest.isAutoStartEnabled() || this.globalAutoStartEnabled) {
             Chat.send(player, this.plugin.applyPlayerAndPAPI(BukkitQuestsPlugin.PAPIType.QUESTS, player, Messages.QUEST_CANCEL_NOTCANCELLABLE.getMessage()), true);
             return false;
         }
@@ -423,7 +424,7 @@ public class NormalQuestController implements QuestController {
 
     private Set<Quest> getStartedQuestsForPlayer(QPlayer qPlayer) {
         Set<Quest> startedQuests = new HashSet<>();
-        if (config.getBoolean("options.quest-autostart")) {
+        if (this.globalAutoStartEnabled) {
             for (Quest quest : plugin.getQuestManager().getQuestMap().values()) {
                 QuestStartResult response = canPlayerStartQuest(qPlayer, quest);
                 if (response == QuestStartResult.QUEST_SUCCESS || response == QuestStartResult.QUEST_ALREADY_STARTED) {

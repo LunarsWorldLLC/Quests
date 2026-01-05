@@ -321,12 +321,14 @@ public class TaskUtils {
     }
 
     public static List<PendingTask> getApplicableTasks(Player player, QPlayer qPlayer, TaskType type, TaskConstraintSet constraintSet) {
-        List<PendingTask> tasks = new ArrayList<>();
+        Collection<Quest> registeredQuests = type.getRegisteredQuests();
+        // Pre-allocate with expected capacity to avoid resizing during iteration
+        List<PendingTask> tasks = new ArrayList<>(registeredQuests.size());
 
         // Cache it as getting it requires some complex math
         String biomeKey = null;
 
-        for (Quest quest : type.getRegisteredQuests()) {
+        for (Quest quest : registeredQuests) {
             if (qPlayer.hasStartedQuest(quest)) {
                 QuestProgress questProgress = qPlayer.getQuestProgressFile().getQuestProgress(quest);
 
